@@ -1,0 +1,4 @@
+{
+  "meta.title": "Catgirl Localization Pack (zh-x-cat)",
+  "meta.description": "Adds a selectable Catgirl Chinese (zh-x-cat) language to the dsh Web UI, overriding 81 non-critical copy entries with automatic fallback to zh."
+}

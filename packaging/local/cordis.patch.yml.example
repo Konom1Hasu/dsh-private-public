@@ -1,0 +1,53 @@
+# dsh 私有化 —— 本机私有配置层（不要提交、不要分发）
+#
+# 放到：$DSH_HOME/cordis.patch.yml
+# 这一层排在 profile 的 cordis.patch.yml 之后，用来放「换台机器就不一样」的东西：
+#   · provider / baseURL / apiKeyEnv
+#   · 私有模型命名与上下文参数
+#   · 只在本机装了的插件的 disabled 开关
+#
+# 密钥本身不要写在这里。用 apiKeyEnv 指向环境变量，值放系统环境变量或
+# 凭据服务里。注意 patch 支持 !!js，任何能改这个文件的人都能读 process.env，
+# 所以这个文件本身的权限也要当密钥对待。
+
+# ── 自定义 provider（OpenAI 兼容）────────────────────────────────────
+- id: llm-pi-ai
+  name: "@deepseek-ai/dsh-llm-pi-ai"
+  config:
+    providers:
+      # 本地模型：完全离线，无上游过滤，适合兜底与对照
+      lmstudio:
+        displayName: local-qwen
+        apiKeyEnv: LMSTUDIO_API_KEY
+        api: openai-completions
+        baseURL: http://127.0.0.1:1234/v1
+        models:
+          - id: qwen/qwen3.5-4b
+            name: Qwen3.5-4b
+
+      # 私有网关示例：换成你自己的地址与变量名
+      private-gateway:
+        displayName: my-gateway
+        apiKeyEnv: MY_GATEWAY_API_KEY
+        api: openai-completions
+        baseURL: https://your-gateway.example.com/v1
+        models:
+          - id: your-model-id
+            name: Your Model
+            contextWindow: 128000
+            maxTokens: 8192
+
+# ── 默认模型（改这里切换主力）────────────────────────────────────────
+- id: agent-default-model
+  name: "@deepseek-ai/dsh-agent-default-model"
+  config:
+    provider: lmstudio
+    model: qwen/qwen3.5-4b
+
+# ── 只在本机装了的插件，按需禁用 ─────────────────────────────────────
+# 注意：id 写错不会报错，只会被静默跳过。改完必须跑
+#   dsh --profile <name> --dump-config | Select-String '<id>'
+# 确认目标行确实存在。
+#
+# - id: wallpaper-engine
+#   disabled: true

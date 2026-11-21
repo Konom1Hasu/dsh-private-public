@@ -1,0 +1,22 @@
+# Heavy / runtime / local artifacts
+backups/
+logs/
+node_modules/
+**/node_modules/
+*.log
+*.tmp
+*.bak
+
+# OS & editor
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Secrets / credentials
+.env
+.env.*
+*.pem
+*.key
+*secret*
+*token*
+*credential*

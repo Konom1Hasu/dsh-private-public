@@ -1,0 +1,81 @@
+# dsh 私有化 —— 通用配置层（可分发，放 <profile>/cordis.patch.yml）
+#
+# 这里只放「与具体机器无关、且每个 profile 可以不同」的配置。
+# provider / 密钥 一律在 $DSH_HOME/cordis.patch.yml（全局层），
+# 由 packaging/global/cordis.patch.yml 提供。
+#
+# 层序（后者覆盖前者）：
+#   bundle 默认 → 本文件（profile） → $DSH_HOME/cordis.patch.yml（全局） → --patch
+#   注意：全局层排在本文件之后，会覆盖同 id 的配置。
+#
+# 注意：config 是整体替换，不深合并。改某一行时要把该行拥有的键写全。
+
+# ── 身份：给 persona-suffix 一个不含变量的非空值 ─────────────────────
+# 有些插件（如 dsh-purge）会在运行时把空的 persona-suffix 填成含 {{cwd}}
+# 的模板，而 dsh 0.2.1-rc.2 只注册 provider / model 两个变量，严格插值会抛
+# unknown prompt variable，导致每轮「本轮运行失败」。
+# 给一个非空且无变量的后缀，可以挡住这类回写。
+- id: system-prompt
+  name: "@deepseek-ai/dsh-system-prompt"
+  config:
+    includeHarnessIdentity: false
+    personaPrefix: ""
+    personaSuffix: "Your working directory is provided by the session runtime context."
+
+# ── 默认模型（每个 profile 自己定）───────────────────────────────────
+# provider 名来自全局层的 llm-pi-ai / llm-deepseek。
+# bootstrap.ps1 会按 -Provider / -Model 参数改写这一行。
+- id: agent-default-model
+  name: "@deepseek-ai/dsh-agent-default-model"
+  config:
+    provider: deepseek-account
+    model: deepseek-flash
+    reasoningEffort: high
+
+# ── 上下文与成本 ────────────────────────────────────────────────────
+# 默认 0.8 × 1M 窗口 ≈ 80 万 tokens 才压缩，会话会一路涨到几十万，
+# 之后每一步工具调用都重发全量历史。压到 0.18 触发、保留 12%。
+- id: compaction-basic
+  name: "@deepseek-ai/dsh-compaction-basic"
+  config:
+    thresholdRatio: 0.18
+    retainRatio: 0.12
+
+- id: spill-policy
+  name: "@deepseek-ai/dsh-spill-policy"
+  config:
+    maxInlineTokens: 10000
+
+- id: tool-result-pruner
+  name: "@deepseek-ai/dsh-compaction-tool-result-pruner"
+  config:
+    thresholdChars: 8192
+    headChars: 4096
+    tailChars: 1024
+
+# ── WebSocket 心跳 ──────────────────────────────────────────────────
+# gateway 默认 2000ms，它同时是 Ping 周期和活动截止时间：连续两个周期
+# 无活动就 terminate 该 peer。事件循环停顿超过 4 秒（同步写盘、GC、
+# 大 session 压缩）或浏览器挂起后台标签，都会触发「重新连接中」。
+- id: typert-gateway
+  name: "@deepseek-ai/dsh-api-gateway"
+  config:
+    websocketHeartbeatIntervalMs: 15000
+
+# ── 会话检索（可选，零成本）─────────────────────────────────────────
+# openAt: first-search —— 不搜索就不建索引。给 Agent 5 个只读检索工具。
+# 不需要就整段删掉。
+- insert:
+    - id: optional-session-search
+      name: cordis:group
+      group: true
+      isolate:
+        sessionQuery: true
+      config:
+        - id: optional-session-query-sqlite
+          name: '@deepseek-ai/dsh-session-query-sqlite'
+          config:
+            path: ':memory:'
+            openAt: first-search
+        - id: optional-tool-session-query
+          name: '@deepseek-ai/dsh-tool-session-query'

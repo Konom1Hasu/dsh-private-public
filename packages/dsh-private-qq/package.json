@@ -1,0 +1,26 @@
+{
+  "name": "@yg/dsh-private-qq",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DSH native QQ channel bridge via NapCat OneBot v11",
+  "type": "module",
+  "main": "lib/index.js",
+  "files": [
+    "lib/index.js",
+    "lib/store.mjs",
+    "lib/noise.mjs",
+    "lib/debounce.mjs",
+    "lib/outbound.mjs",
+    "lib/onebot.mjs",
+    "lib/dsh-sessions.mjs",
+    "lib/bridge.mjs"
+  ],
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.0.5",
+    "@deepseek-ai/dsh-tools": "0.2.1-rc.2",
+    "schemastery": "~3.18.5"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  }
+}

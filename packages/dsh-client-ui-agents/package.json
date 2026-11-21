@@ -1,0 +1,31 @@
+{
+  "name": "@yg/dsh-client-ui-agents",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agent 编队工作台：右侧栏面板，展示编队拓扑、上下文八段、泳道时间线与委派任务",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js"
+  ],
+  "engines": {
+    "dsh": "0.2.1-rc.2"
+  },
+  "dsh": {
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-sidebar-right"
+      ],
+      "platform": "web"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.0.5"
+  }
+}

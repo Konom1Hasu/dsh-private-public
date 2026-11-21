@@ -1,0 +1,4 @@
+{
+  "meta.title": "猫娘本地化语言包 (zh-x-cat)",
+  "meta.description": "为 dsh Web UI 新增「中文（猫娘版）」可选语言，覆写 81 条高频非关键文案，未覆盖项自动回退官方中文。"
+}

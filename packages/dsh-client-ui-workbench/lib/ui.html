@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>工作台</title>
+<style>
+  /*
+   * 素纸底 + 细线。刻意不做玻璃拟态和发光。
+   * 原因不是审美保守：Liquid Glass 那套透明压在背景上已被实测批过
+   * 「文字读不清、视觉一致性压过可读性」，Apple 自己在后续 beta 里也加了模糊。
+   * 工作台是拿来干活的地方，先保证看得清。
+   */
+  :root {
+    /* 冷灰纸底。不加阴影 —— 纯靠边框和线宽分层次，
+       阴影在这种小卡片上很容易糊成脏边。 */
+    --paper: #f2f2f4;
+    --card: #ffffff;
+    --line: #d8d8dd;
+    --line-soft: #ebebee;
+    --ink: #1c1c1f;
+    --ink-2: #6c6c72;
+    --ink-3: #a4a4ab;
+    /* 状态色压低饱和度：四个一起出现时不能像报警灯 */
+    --live: #3f8b52;
+    --warn: #c08b1a;
+    --err: #bf4a43;
+    --idle: #c0c0c6;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--paper);
+    color: var(--ink);
+    font: 13px/1.55 system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* 布局不是四等分：左进（待办）→ 中间做（会话）→ 右侧看谁在做（编队）→ 底部兜底（广播） */
+  .wb {
+    display: grid;
+    grid-template-columns: 224px minmax(0, 1fr) 216px;
+    grid-template-rows: minmax(0, 1fr) minmax(112px, auto);
+    gap: 14px;
+    /* dvh 而不是 vh：浏览器 UI 伸缩时 vh 会把内容顶出可视区 */
+    height: 100dvh;
+    padding: 14px;
+  }
+  .wb-todo  { grid-column: 1; grid-row: 1; }
+  .wb-chat  { grid-column: 2; grid-row: 1; }
+  .wb-fleet { grid-column: 3; grid-row: 1; }
+  .wb-cast  { grid-column: 1 / -1; grid-row: 2; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .card-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 11px 14px 10px;
+    /* 标题下的线比卡内分隔粗一档，让层级看得出 */
+    border-bottom: 1.5px solid var(--line);
+    flex: 0 0 auto;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .02em;
+    color: var(--ink);
+  }
+  .card-title-2 {
+    font-size: 11px;
+    color: var(--ink-3);
+    font-weight: 400;
+    letter-spacing: .01em;
+  }
+  .card-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    padding: 13px 14px;
+  }
+  .card-foot {
+    flex: 0 0 auto;
+    padding: 7px 14px;
+    border-top: 1px solid var(--line-soft);
+    font-size: 10.5px;
+    color: var(--ink-3);
+    letter-spacing: .03em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* 状态点：光靠文字说「在跑」不够，一眼要能扫到哪个卡是活的 */
+  .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--idle);
+    flex: 0 0 auto;
+  }
+  .dot.live { background: var(--live); }
+  .dot.warn { background: var(--warn); }
+  .dot.err  { background: var(--err); }
+
+  .count {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .01em;
+  }
+
+  /* 空态：说清「为什么空」，不要留一片白 */
+  .empty {
+    color: var(--ink-3);
+    font-size: 12.5px;
+    line-height: 1.75;
+  }
+  .empty b { color: var(--ink-2); font-weight: 600; }
+
+  /*
+   * 条目：状态用一个小圆点，不用左侧彩色竖条。
+   * 竖条在视觉上和「卡片加条装饰」没区别，是 AI 模板的常见手笔；
+   * 圆点是 dsh 自己表达状态的方式（primitives 里的 StateDot），
+   * 一眼能看出是状态而不是装饰。
+   */
+  .row {
+    position: relative;
+    padding-left: 14px;
+    margin-bottom: 14px;
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+  .row:last-child { margin-bottom: 0; }
+  .row::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 6px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--idle);
+  }
+  .row.is-live::before  { background: var(--live); }
+  .row.is-block::before { background: var(--warn); }
+  .row.is-done::before  { background: var(--idle); }
+  .row-title { color: var(--ink); }
+  .row.is-done .row-title { color: var(--ink-3); text-decoration: line-through; }
+  .row-meta {
+    font-size: 11px;
+    color: var(--ink-3);
+    margin-top: 3px;
+    letter-spacing: .01em;
+  }
+  .row-q {
+    font-size: 11.5px;
+    color: var(--warn);
+    margin-top: 5px;
+    line-height: 1.5;
+  }
+
+  .cast-list { display: flex; flex-direction: column; gap: 7px; }
+  .cast-row {
+    display: flex; gap: 10px; align-items: baseline;
+    font-size: 12.5px;
+  }
+  .cast-time {
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+    flex: 0 0 auto;
+    font-size: 11px;
+  }
+  .cast-text { color: var(--ink); min-width: 0; }
+
+  /* 滚动条低调一点，别抢内容 */
+  .card-body::-webkit-scrollbar { width: 8px; height: 8px; }
+  .card-body::-webkit-scrollbar-thumb {
+    background: #d4d4da; border-radius: 4px;
+  }
+  .card-body::-webkit-scrollbar-track { background: transparent; }
+</style>
+</head>
+<body>
+<div class="wb">
+
+  <section class="card wb-todo">
+    <div class="card-head">
+      <span class="dot" id="todo-dot"></span>
+      <span class="card-title">待办</span>
+      <span class="count" id="todo-count"></span>
+    </div>
+    <div class="card-body" id="todo-body">
+      <div class="empty">读取中…</div>
+    </div>
+    <div class="card-foot" id="todo-foot">任务账本</div>
+  </section>
+
+  <section class="card wb-chat">
+    <div class="card-head">
+      <span class="dot live"></span>
+      <span class="card-title">当前会话</span>
+      <span class="card-title-2" id="chat-sid"></span>
+      <span class="count" id="chat-meta"></span>
+    </div>
+    <div class="card-body" id="chat-body">
+      <div class="empty">这里放当前会话的消息流与工具调用。</div>
+    </div>
+    <div class="card-foot" id="chat-foot">会话实时状态</div>
+  </section>
+
+  <section class="card wb-fleet">
+    <div class="card-head">
+      <span class="dot" id="fleet-dot"></span>
+      <span class="card-title">编队</span>
+      <span class="count" id="fleet-count"></span>
+    </div>
+    <div class="card-body" id="fleet-body">
+      <div class="empty">读取中…</div>
+    </div>
+    <div class="card-foot" id="fleet-foot">子代理执行</div>
+  </section>
+
+  <section class="card wb-cast">
+    <div class="card-head">
+      <span class="dot" id="cast-dot"></span>
+      <span class="card-title">广播</span>
+      <span class="count" id="cast-count"></span>
+    </div>
+    <div class="card-body" id="cast-body">
+      <div class="empty">读取中…</div>
+    </div>
+  </section>
+
+</div>
+<script type="module" src="./workbench.js"></script>
+</body>
+</html>

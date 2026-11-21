@@ -1,0 +1,72 @@
+# dsh 私有化 —— 全局 provider 层（放 $DSH_HOME/cordis.patch.yml）
+#
+# 这一层作用于**所有 profile**：web / headless / private / 以后新建的任何一个。
+# 所以只放「所有 profile 该一样的定义」——provider、网关地址、密钥环境变量名。
+#
+# 不放这里的东西：
+#   · agent-default-model（哪个模型当主力，是各 profile 自己的偏好）
+#   · 工具开关、UI 设定（不同场景不一样）
+#
+# ⚠️ 层序：全局层排在每个 profile 的 cordis.patch.yml **之后**，
+#    这里的内容会覆盖 profile 层里同 id 的配置。
+#    改动前先备份，改完必须对比 dump-config。
+#
+# ⚠️ provider 的书写顺序会反映到 UI 的模型列表顺序。这里保持与原来 web
+#    profile 相同的顺序（acme-gateway → lmstudio → deepseek-taffy），
+#    避免装上去之后模型选择器的排列发生变化。
+#
+# 密钥本身不写在这里。用 apiKeyEnv 指向环境变量。
+# 注意 patch 支持 !!js，能改这个文件的人就能读 process.env。
+
+# ── 自定义 provider ─────────────────────────────────────────────────
+- id: llm-pi-ai
+  name: "@deepseek-ai/dsh-llm-pi-ai"
+  config:
+    providers:
+      # 第三方中转
+      acme-gateway:
+        displayName: hcnsec
+        apiKeyEnv: ACME_GATEWAY_API_KEY
+        api: openai-completions
+        baseURL: https://api.hcnsec.cn
+        models:
+          - id: deepseek-v4-flash-high
+            name: v4flash h
+            contextWindow: 8192
+            maxTokens: 4096
+
+      # 本地模型：离线、无上游过滤，适合兜底与对照
+      lmstudio:
+        displayName: qwen3.5-4b
+        apiKeyEnv: LMSTUDIO_API_KEY
+        api: openai-completions
+        baseURL: http://127.0.0.1:1234/v1
+        models:
+          - id: qwen/qwen3.5-4b
+            name: Qwen3.5-4b
+
+      # 官方直连
+      deepseek-taffy:
+        displayName: 除草剂的大肥鱼V4.1 Flash-1017
+        apiKeyEnv: DEEPSEEK_TAFFY_API_KEY
+        api: openai-completions
+        baseURL: https://api.deepseek.com/v1
+        models:
+          - id: deepseek-flash
+            name: DeepSeek-V4.1-Flash
+            contextWindow: 1048576
+            maxTokens: 393216
+
+# ── 官方 deepseek provider 的模型清单 ────────────────────────────────
+- id: llm-deepseek
+  name: "@deepseek-ai/dsh-llm-deepseek-api-key"
+  config:
+    models:
+      - id: deepseek-v4-flash
+        name: DeepSeek-V4-Flash
+        contextWindow: 1000000
+      - id: deepseek-v4-pro
+        name: DeepSeek-V4-Pro
+        contextWindow: 1000000
+      - id: deepseek-flash
+        name: 大肥鱼 V4.1-Flash

@@ -1,0 +1,14 @@
+{
+  "name": "@yg/dsh-private-agents",
+  "version": "0.1.0",
+  "description": "Agent 编队工作台：从 session 日志重建 agent 树、泳道时间线、任务表",
+  "type": "module",
+  "main": "lib/index.js",
+  "files": [
+    "lib/index.js",
+    "lib/ui.html"
+  ],
+  "peerDependencies": {
+    "@deepseek-ai/dsh": "*"
+  }
+}

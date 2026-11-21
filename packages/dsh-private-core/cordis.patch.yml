@@ -1,0 +1,70 @@
+# @yg/dsh-private-core — 私有化补丁层
+#
+# 层序（后者覆盖前者，按 id 命中）：
+#   dsh-base → dsh-web-app → 本包 → profile/cordis.patch.yml
+#   → $DSH_HOME/cordis.patch.yml → --patch
+#
+# 已核实语义（dsh-app-boot/lib/index.js）：
+#   · config 整体替换，不深合并（:3044 schema 描述原文）
+#   · 未知 id 只 warn 并跳过（:97），不阻断启动 —— 静默失败，改完必须验证
+#
+# 本包排在 profile 那份之前，所以 profile/cordis.patch.yml 对同 id 的覆盖
+# 会压过这里。身份要写在哪一份，只写一份。
+
+# ─────────────────────────────────────────────────────────────
+# 1. 身份层 —— 本部署已交由 dsh-purge，本包不碰
+#
+# 实测链路（2026-11-12）：
+#   ~/.dsh/prompt-inject.md → dsh-purge/lib/identity.js → system prompt
+#   dsh-purge/lib/identity.js:4  GLOBAL_PROMPT_ORDER = -100000（比官方最低位 -1000 更靠前）
+#   dsh-purge/lib/identity.js:20 PERSONA_PREFIX_NAMES 含 "deployment:persona-prefix"
+#                                  → purge 主动管理 persona-prefix 这个位置
+#   dsh-purge/lib/identity.js:44 stripHarnessPersona() 会剥离 harness 身份
+#
+# 结论：在本机再填 dsh 的 personaPrefix 会变成第二套人格，模型收到两份
+# 互相矛盾的自我描述。身份只由 purge 那一处定义。
+#
+# 下面这段仅作「其他部署」的模板保留（那些机器没有 dsh-purge）。
+# 在本 profile 里它会被 cordis.patch.yml 覆盖，不生效——这是层序决定的，不是 bug。
+#
+# - id: system-prompt
+#   config:
+#     includeHarnessIdentity: false
+#     includeRuntimeContext: true
+#     personaPrefix: |-
+#       你是 YG 的私有部署实例，代号 PRIVATE-CORE。
+#     personaSuffix: "Your working directory is provided by the session runtime context."
+
+# ─────────────────────────────────────────────────────────────
+# 2. 私有插件本体
+#
+# 不写 houseRules / houseRulesOrder：schema 已有 default（'' / 9500），
+# 写空占位只会让后续 override 更费劲。
+#
+# order 9500 的来历（dsh-system-prompt/lib/index.js:10-43 SECTION_ORDERS）：
+#   9000 = DELIVERABLE_FILE_REFERENCES
+#   9900 = STRUCTURED_OUTPUT
+#   9500 是这两者之间的空档，落在全部工具指导段（最高 5000-3100）之后、
+#   交付物引用与结构化输出之前。原来写的 9000 会与官方段撞号。
+# ─────────────────────────────────────────────────────────────
+- insert:
+    - id: private-core
+      name: '@yg/dsh-private-core'
+      config:
+        operatorName: YG
+        notebookPath: .yg-private/notes.md
+
+# ─────────────────────────────────────────────────────────────
+# 3. 遥测 / 产品分析
+#    id 未核实，先用 `dsh --profile web --dump-config` 查准再取消注释。
+#    注意：写错 id 不会报错，只会静默跳过 —— 看起来"配了"，其实没配。
+# ─────────────────────────────────────────────────────────────
+# - id: desktop-product-telemetry
+#   disabled: true
+
+# ─────────────────────────────────────────────────────────────
+# 4. 策略层（同 3，id 必须核实）
+# ─────────────────────────────────────────────────────────────
+# - id: user-approval
+#   config:
+#     policy: never
