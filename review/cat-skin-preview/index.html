@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>cat-skin 配色与挂件预览 v2</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    background: #0b0a10; color: #d8d4e4; padding: 30px 36px 50px;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1 { font-size: 22px; font-weight: 600; color: #efeaf8; margin-bottom: 4px; }
+  .sub { font-size: 13px; color: #7d7690; margin-bottom: 26px; }
+  h2 { font-size: 15px; font-weight: 600; color: #b8b0cc; margin: 30px 0 13px; padding-left: 10px; border-left: 3px solid #6c5ce7; }
+  h2:first-of-type { margin-top: 0; }
+
+  .scheme { display: flex; align-items: stretch; margin-bottom: 14px; border-radius: 10px; overflow: hidden; border: 1px solid #221f30; }
+  .scheme-label {
+    width: 160px; flex-shrink: 0; padding: 12px 13px;
+    display: flex; flex-direction: column; justify-content: center; gap: 5px;
+    border-right: 1px solid #221f30;
+  }
+  .scheme-label .code { font-family: Consolas, monospace; font-size: 12px; font-weight: 600; }
+  .scheme-label .kind { font-size: 11px; color: #6f6884; }
+  .swatches { display: flex; gap: 4px; margin-top: 3px; }
+  .sw { width: 20px; height: 20px; border-radius: 5px; border: 1px solid rgba(255,255,255,.08); }
+
+  .scheme-body { flex: 1; display: flex; min-width: 0; }
+
+  /* 侧边栏竖条 */
+  .mini-sidebar {
+    width: 132px; flex-shrink: 0; padding: 10px 9px; display: flex; flex-direction: column; gap: 7px;
+    border-right: 1px solid rgba(255,255,255,.04);
+  }
+  .mini-sidebar .brand { display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; margin-bottom: 2px; }
+  .mini-sidebar .item { font-size: 11px; padding: 4px 6px; border-radius: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dot { width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0; }
+
+  .mock { flex: 1; padding: 11px 13px; display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+  .row { display: flex; gap: 8px; align-items: center; min-width: 0; }
+  .bubble { padding: 7px 11px; border-radius: 10px; font-size: 12px; line-height: 1.5; }
+  .bubble.me { border-bottom-right-radius: 3px; align-self: flex-end; max-width: 70%; }
+  .bubble.bot { border-bottom-left-radius: 3px; max-width: 78%; }
+  .composer { border-radius: 9px; padding: 9px 11px; font-size: 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .composer .ph { opacity: .4; }
+  .send { padding: 3px 9px; border-radius: 6px; font-size: 11px; flex-shrink: 0; }
+  .btn { padding: 5px 11px; border-radius: 7px; font-size: 11.5px; font-weight: 500; white-space: nowrap; }
+
+  /* 挂件 */
+  .marks { display: flex; flex-wrap: wrap; gap: 13px; }
+  .mark-card {
+    background: #15131f; border: 1px solid #241f33; border-radius: 10px;
+    padding: 13px 14px 11px; display: flex; flex-direction: column; align-items: center; gap: 9px; width: 178px;
+  }
+  .mark-card .name { font-size: 12px; color: #cfc7e0; font-weight: 500; }
+  .mark-card .raw { display: flex; gap: 13px; align-items: center; color: #b9a7ff; }
+  .mark-card .note { font-size: 10px; color: #6a6382; text-align: center; line-height: 1.5; }
+
+  .corner-wrap { display: flex; gap: 40px; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
+  .corner-demo { position: relative; width: 300px; }
+  .corner-demo .bar {
+    height: 48px; border-radius: 10px; background: #1b1828; border: 1px solid #2e2842;
+    display: flex; align-items: center; padding: 0 13px; font-size: 11.5px; color: #6d6685;
+  }
+  .corner-demo .ears { position: absolute; top: -13px; left: 14px; right: 14px; display: flex; justify-content: space-between; color: #8b7bf0; }
+  .cap { font-size: 11px; color: #6a6382; margin-top: 12px; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>cat-skin 配色与挂件 实例预览 v2</h1>
+<p class="sub">配色挑 A/B/C/D/E，挂件挑 M1–M6。每套都按真实 UI 片段渲染，挂件给 64 / 32 / 24 px 三档。</p>
+
+<h2>方案 A–C：夜猫深蓝紫 三档气质</h2>
+<div id="sec-dark"></div>
+
+<h2>方案 D–E：浅色对照</h2>
+<div id="sec-light"></div>
+
+<h2>猫耳 / 挂件样式（6 款，全部 currentColor 随配色走）</h2>
+<div class="marks" id="marks"></div>
+
+<h2>挂件在输入框上沿的实际位置模拟</h2>
+<div class="corner-wrap" id="corner"></div>
+
+<script>
+const schemes = [
+  { code:'A · midnight-cat', kind:'靛紫微光 · 最稳',
+    bg:'#12111b', panel:'#181630', panel2:'#221f3a', border:'#302c4d',
+    text:'#e6e3f2', soft:'#9b96b8', accent:'#8b7bf0', accent2:'#6c5ce7',
+    bubble:'#241f3d', bubbleMe:'#4a3fa8', fg:'#ffffff' },
+  { code:'B · midnight-soft', kind:'紫罗兰柔雾 · 更软更淡',
+    bg:'#16141d', panel:'#211c2b', panel2:'#2a2436', border:'#372f45',
+    text:'#ece7f2', soft:'#a99cb8', accent:'#c0a0d8', accent2:'#a479c0',
+    bubble:'#2c2439', bubbleMe:'#6b4f80', fg:'#ffffff' },
+  { code:'C · midnight-contrast', kind:'暗夜高对比 · 最锋利',
+    bg:'#0a0910', panel:'#131120', panel2:'#1d1929', border:'#2a2438',
+    text:'#f5f3ff', soft:'#8f88a8', accent:'#c9a2ff', accent2:'#8b5cf6',
+    bubble:'#1e1830', bubbleMe:'#7c3aed', fg:'#ffffff' },
+  { code:'D · sakura-milk', kind:'奶白樱粉 · 浅色',
+    bg:'#fdfafb', panel:'#f7eef2', panel2:'#faf3f6', border:'#f0e3e9',
+    text:'#2b2530', soft:'#8a7f8f', accent:'#e88aa8', accent2:'#d4738f',
+    bubble:'#f7edf1', bubbleMe:'#e88aa8', fg:'#ffffff' },
+  { code:'E · warm-latte', kind:'暖米奶茶 · 浅色',
+    bg:'#f8f3ec', panel:'#f2e9db', panel2:'#f5eee2', border:'#e8dcc8',
+    text:'#2f2820', soft:'#8c7f6c', accent:'#c9855a', accent2:'#b0703f',
+    bubble:'#f3eade', bubbleMe:'#c9855a', fg:'#ffffff' }
+];
+
+function mockHTML(s) {
+  return `
+  <div class="scheme" style="background:${s.bg}">
+    <div class="scheme-label" style="background:${s.panel}">
+      <div class="code" style="color:${s.accent}">${s.code}</div>
+      <div class="kind">${s.kind}</div>
+      <div class="swatches">
+        <div class="sw" style="background:${s.bg}"></div>
+        <div class="sw" style="background:${s.panel2}"></div>
+        <div class="sw" style="background:${s.accent}"></div>
+        <div class="sw" style="background:${s.accent2}"></div>
+        <div class="sw" style="background:${s.soft}"></div>
+      </div>
+    </div>
+    <div class="scheme-body">
+      <div class="mini-sidebar" style="background:${s.panel};color:${s.text}">
+        <div class="brand"><span class="dot" style="background:${s.accent}"></span>猫猫咖啡馆</div>
+        <div class="item" style="background:${s.accent}22;color:${s.text}">＋ 新建会话</div>
+        <div class="item" style="color:${s.soft}">长夜写作计划</div>
+        <div class="item" style="color:${s.soft}">插件调试记录</div>
+        <div class="item" style="color:${s.soft}">猫皮设计稿</div>
+      </div>
+      <div class="mock" style="background:${s.bg}">
+        <div class="row">
+          <div class="btn" style="background:${s.accent};color:${s.fg}">确认</div>
+          <div class="btn" style="background:${s.panel2};color:${s.text};border:1px solid ${s.border}">取消</div>
+        </div>
+        <div class="bubble bot" style="background:${s.bubble};color:${s.text};border:1px solid ${s.border}">今晚要不要写点新章喵？</div>
+        <div class="bubble me" style="background:${s.bubbleMe};color:${s.fg}">写，先存档再动笔</div>
+        <div class="composer" style="background:${s.panel2};border:1px solid ${s.border};color:${s.text}">
+          <span class="ph">输入点什么…</span>
+          <span class="send" style="background:${s.accent};color:${s.fg}">发送</span>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+document.getElementById('sec-dark').innerHTML = schemes.slice(0,3).map(mockHTML).join('');
+document.getElementById('sec-light').innerHTML = schemes.slice(3).map(mockHTML).join('');
+
+/* ---------- 6 款挂件 ---------- */
+const marks = [
+  { id:'M1', name:'线条猫耳', note:'细描边三角 + 内耳<br>最克制，24px 也不糊',
+    svg: (sz) => `<svg width="${sz}" height="${sz}" viewBox="0 0 48 48" fill="none">
+      <path d="M9 38 L14 13 L24 26 L34 13 L39 38" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+      <path d="M17 31 L18 20 L23 26" stroke="currentColor" stroke-width="1.5" opacity=".5" stroke-linecap="round"/>
+      <path d="M31 31 L30 20 L25 26" stroke="currentColor" stroke-width="1.5" opacity=".5" stroke-linecap="round"/>
+    </svg>` },
+  { id:'M2', name:'圆润猫耳', note:'软胖三角，无内耳<br>亲和感最强',
+    svg: (sz) => `<svg width="${sz}" height="${sz}" viewBox="0 0 48 48" fill="none">
+      <path d="M10 38 C8 24 10 15 15 13 C20 11 22 20 24 25 C26 20 28 11 33 13 C38 15 40 24 38 38" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M10 38 L38 38" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+    </svg>` },
+  { id:'M3', name:'猫耳 + 蝴蝶结', note:'底部实心小领结<br>女性向，装饰性最强',
+    svg: (sz) => `<svg width="${sz}" height="${sz}" viewBox="0 0 48 48" fill="none">
+      <path d="M10 31 L14 9 L24 20 L34 9 L38 31" stroke="currentColor" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round"/>
+      <path d="M23.4 39 L16 34.5 L16 43.5 Z" fill="currentColor"/>
+      <path d="M24.6 39 L32 34.5 L32 43.5 Z" fill="currentColor"/>
+      <circle cx="24" cy="39" r="2.3" fill="currentColor"/>
+    </svg>` },
+  { id:'M4', name:'猫耳 + 星光', note:'右上角一颗四角星<br>夜感，配 A / C 最搭',
+    svg: (sz) => `<svg width="${sz}" height="${sz}" viewBox="0 0 48 48" fill="none">
+      <path d="M7 38 L12 15 L23 26 L34 15 L39 38" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+      <path d="M37 7 L38.6 12 L43.6 13.6 L38.6 15.2 L37 20.2 L35.4 15.2 L30.4 13.6 L35.4 12 Z" fill="currentColor"/>
+    </svg>` },
+  { id:'M5', name:'简笔猫脸', note:'圆脸 + 双耳 + 胡须<br>辨识度最高，像头像',
+    svg: (sz) => `<svg width="${sz}" height="${sz}" viewBox="0 0 48 48" fill="none">
+      <path d="M14 18 L12 7 L22 13" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+      <path d="M34 18 L36 7 L26 13" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="24" cy="27" r="12.5" stroke="currentColor" stroke-width="2.2"/>
+      <path d="M19.5 25 L19.6 25 M28.5 25 L28.6 25" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
+      <path d="M24 29 L24 31" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="M22.4 31.5 C23 33.2 25 33.2 25.6 31.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M4 24 L11.5 26 M4 31 L11.5 30.5 M44 24 L36.5 26 M44 31 L36.5 30.5" stroke="currentColor" stroke-width="1.3" opacity=".65" stroke-linecap="round"/>
+    </svg>` },
+  { id:'M6', name:'月牙 + 猫耳', note:'底部一弯实心月<br>夜猫款专属，配 A / C',
+    svg: (sz) => `<svg width="${sz}" height="${sz}" viewBox="0 0 48 48" fill="none">
+      <path d="M10 29 L14 8 L24 19 L34 8 L38 29" stroke="currentColor" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round"/>
+      <path d="M16 33 C19 42 29 42 32 33 C29 37.5 19 37.5 16 33 Z" fill="currentColor"/>
+      <circle cx="24" cy="32" r="1.5" fill="currentColor" opacity=".9"/>
+    </svg>` }
+];
+
+document.getElementById('marks').innerHTML = marks.map(m => `
+  <div class="mark-card">
+    <div class="name">${m.id} · ${m.name}</div>
+    <div class="raw">${m.svg(64)}${m.svg(32)}${m.svg(24)}</div>
+    <div class="note">${m.note}</div>
+  </div>`).join('');
+
+document.getElementById('corner').innerHTML = ['M1','M5','M4'].map(id => {
+  const m = marks.find(x => x.id === id);
+  return `<div>
+    <div class="corner-demo">
+      <div class="ears">
+        <span style="transform:rotate(-10deg)">${m.svg(28)}</span>
+        <span style="transform:rotate(10deg)">${m.svg(28)}</span>
+      </div>
+      <div class="bar">现在这样就挺好…</div>
+    </div>
+    <div class="cap">${m.id} · ${m.name} · 28px 双耳掠角</div>
+  </div>`;
+}).join('');
+</script>
+</body>
+</html>
