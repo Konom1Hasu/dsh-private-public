@@ -1,0 +1,29 @@
+{
+  "name": "@yg/dsh-agycli-provider",
+  "version": "0.1.0",
+  "private": true,
+  "description": "agycli provider: drive Antigravity CLI (agy acp) as a DSH LLM channel",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./cordis.patch.yml": "./cordis.patch.yml"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/agy-acp-client.mjs",
+    "lib/mcp-bridge.mjs",
+    "lib/park.mjs",
+    "cordis.patch.yml"
+  ],
+  "engines": {
+    "dsh": "0.2.1-rc.2"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": [
+        "./cordis.patch.yml"
+      ]
+    }
+  }
+}

@@ -1,0 +1,10 @@
+# @yg/dsh-agycli-provider — 把 Antigravity CLI (agy acp) 接成 agycli 渠道
+#
+# 层序：dsh-base → dsh-web-app → 本包 → profile/cordis.patch.yml
+# 本包只 insert 一条插件条目，不动任何已有 id。
+- insert:
+    - id: agycli-provider
+      name: '@yg/dsh-agycli-provider'
+      config:
+        proxy: http://127.0.0.1:8868
+        agent: dsh_bridge

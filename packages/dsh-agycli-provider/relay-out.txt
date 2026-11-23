@@ -1,0 +1,80 @@
+﻿C4 接力中继 + B3 权限三重交集 离线单测
+  FAIL 85 秒到点先回 still running，再 await 拿真结果零延迟
+       await 没拿到真结果：没有 call_id=11 的待接力调用（可能已经返回、已过期，或 call_id 写错）。
++ actual - expected
+
++ '没有 call_id=11 的待接力调用（可能已经返回、已过期，或 call_id 写错）。'
+- '文件内容：PARK_OK'
+
+  ok   模型先 await、结果后到：等待中结果一到立刻返回
+  ok   接力最多 8 轮，超了回硬失败并清表
+  ok   call_id 对不上时回提示，不炸
+  FAIL 内置 dsh_await_result 永挂 tools/list 末尾，且不被压缩闸降级
+       内置工具不许被降级
++ actual - expected
+
++ false
+- undefined
+
+  ok   权限三重交集：活跃 turn + dsh 前缀 + 白名单
+  ok   park 期间（turn 未淘汰）权限照常放行，turn 收尾后立刻拒
+  ok   接力间隙的碎碎念不吐给 DSH（抑制生效，也不当成答复）
+  FAIL 模型不调 await、直接结束回合 → 补一轮 mcp-relay-auto-continue 再收
+       应该补发一轮，实得 1
+
+1 !== 2
+
+  FAIL 没有接力中的调用时不乱补发（空回复仍报 EMPTY_RESPONSE）
+       Expected values to be strictly equal:
++ actual - expected
+
++ 'AGY_STREAM_FAILED'
+- 'EMPTY_RESPONSE'
+
+
+FAILED: 6 通过 / 4 失败
+node : - 85 秒到点先回 still running，再 await 拿真结果零延迟: AssertionError [ERR_ASSERTION]: await 没拿到真结果：没有 call_id=11 的待接力调用（可能已经
+返回、已过期，或 call_id 写错）。
+At line:1 char:196
++ ... ivate\packages\dsh-agycli-provider"; node test-relay.mjs 2>&1 | Out-F ...
++                                          ~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (- 85 秒到点先回 stil...，或 call_id 写错）。:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
++ actual - expected
+
++ '没有 call_id=11 的待接力调用（可能已经返回、已过期，或 call_id 写错）。'
+- '文件内容：PARK_OK'
+
+    at file:///C:/Users/KonomiHasu/dsh-private/packages/dsh-agycli-provider/test-relay.mjs:103:10
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async test (file:///C:/Users/KonomiHasu/dsh-private/packages/dsh-agycli-provider/test-relay.mjs:14:5)
+    at async file:///C:/Users/KonomiHasu/dsh-private/packages/dsh-agycli-provider/test-relay.mjs:82:1
+- 内置 dsh_await_result 永挂 tools/list 末尾，且不被压缩闸降级: AssertionError [ERR_ASSERTION]: 内置工具不许被降级
++ actual - expected
+
++ false
+- undefined
+
+    at file:///C:/Users/KonomiHasu/dsh-private/packages/dsh-agycli-provider/test-relay.mjs:188:10
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async test (file:///C:/Users/KonomiHasu/dsh-private/packages/dsh-agycli-provider/test-relay.mjs:14:5)
+    at async file:///C:/Users/KonomiHasu/dsh-private/packages/dsh-agycli-provider/test-relay.mjs:159:1
+- 模型不调 await、直接结束回合 → 补一轮 mcp-relay-auto-continue 再收: AssertionError [ERR_ASSERTION]: 应该补发一轮，实得 1
+
+1 !== 2
+
+    at file:///C:/Users/KonomiHasu/dsh-private/packages/dsh-agycli-provider/test-relay.mjs:329:10
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async test (file:///C:/Users/KonomiHasu/dsh-private/packages/dsh-agycli-provider/test-relay.mjs:14:5)
+    at async file:///C:/Users/KonomiHasu/dsh-private/packages/dsh-agycli-provider/test-relay.mjs:322:1
+- 没有接力中的调用时不乱补发（空回复仍报 EMPTY_RESPONSE）: AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
++ actual - expected
+
++ 'AGY_STREAM_FAILED'
+- 'EMPTY_RESPONSE'
+
+    at file:///C:/Users/KonomiHasu/dsh-private/packages/dsh-agycli-provider/test-relay.mjs:342:10
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async test (file:///C:/Users/KonomiHasu/dsh-private/packages/dsh-agycli-provider/test-relay.mjs:14:5)
+    at async file:///C:/Users/KonomiHasu/dsh-private/packages/dsh-agycli-provider/test-relay.mjs:337:1

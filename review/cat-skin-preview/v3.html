@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>cat-skin 质感与多层挂件预览 v3 (C + D)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    background: #08070d;
+    color: #e4dff2;
+    padding: 32px 36px 56px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 26px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(201, 162, 255, 0.14);
+  }
+  h1 {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    background: linear-gradient(90deg, #f5f3ff 0%, #c9a2ff 60%, #f29bb7 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .sub { font-size: 12.5px; color: #8c84a6; margin-top: 5px; }
+  .tag-pill {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(201, 162, 255, 0.1);
+    border: 1px solid rgba(201, 162, 255, 0.25);
+    color: #d6bcff;
+  }
+
+  h2 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #cdc5e3;
+    margin: 28px 0 14px;
+    padding-left: 11px;
+    border-left: 3px solid #a78bfa;
+    letter-spacing: 0.02em;
+  }
+  h2:first-of-type { margin-top: 0; }
+
+  /* 双栏真实预览 */
+  .dual-stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .app-frame {
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* 暗夜高对比 C */
+  .theme-c {
+    background: radial-gradient(circle at 82% 8%, rgba(139, 92, 246, 0.14), transparent 46%),
+                radial-gradient(circle at 18% 90%, rgba(168, 85, 247, 0.09), transparent 44%),
+                #0a0911;
+    border: 1px solid rgba(192, 160, 255, 0.18);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    color: #f4f1ff;
+  }
+  /* 奶白樱粉 D */
+  .theme-d {
+    background: radial-gradient(circle at 84% 10%, rgba(244, 152, 184, 0.18), transparent 48%),
+                radial-gradient(circle at 16% 88%, rgba(255, 200, 220, 0.22), transparent 46%),
+                #fdf8fa;
+    border: 1px solid rgba(232, 138, 168, 0.26);
+    box-shadow: 0 14px 36px rgba(212, 115, 143, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    color: #2d232b;
+  }
+
+  .frame-bar {
+    height: 36px;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+  .theme-c .frame-bar {
+    background: rgba(19, 17, 32, 0.85);
+    border-bottom: 1px solid rgba(201, 162, 255, 0.12);
+    color: #d7c2ff;
+  }
+  .theme-d .frame-bar {
+    background: rgba(250, 239, 244, 0.9);
+    border-bottom: 1px solid rgba(232, 138, 168, 0.18);
+    color: #b85276;
+  }
+  .frame-dots { display: flex; gap: 6px; }
+  .frame-dots span { width: 8px; height: 8px; border-radius: 50%; opacity: 0.75; }
+
+  .frame-body {
+    display: flex;
+    min-height: 292px;
+  }
+
+  .sidebar {
+    width: 158px;
+    flex-shrink: 0;
+    padding: 13px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .theme-c .sidebar {
+    background: linear-gradient(180deg, rgba(22, 19, 36, 0.96) 0%, rgba(13, 11, 22, 0.98) 100%);
+    border-right: 1px solid rgba(201, 162, 255, 0.1);
+  }
+  .theme-d .sidebar {
+    background: linear-gradient(180deg, rgba(249, 236, 242, 0.96) 0%, rgba(245, 228, 236, 0.92) 100%);
+    border-right: 1px solid rgba(232, 138, 168, 0.16);
+  }
+
+  .brand-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 3px 5px 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+  }
+  .nav-new {
+    padding: 7px 10px;
+    border-radius: 9px;
+    font-size: 11.5px;
+    font-weight: 500;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .theme-c .nav-new {
+    background: linear-gradient(135deg, rgba(167, 139, 250, 0.22), rgba(124, 58, 237, 0.14));
+    border: 1px solid rgba(201, 162, 255, 0.28);
+    color: #efe9ff;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+  .theme-d .nav-new {
+    background: linear-gradient(135deg, rgba(242, 155, 183, 0.28), rgba(232, 138, 168, 0.16));
+    border: 1px solid rgba(232, 138, 168, 0.36);
+    color: #7c2d49;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  }
+
+  .nav-item {
+    padding: 6px 9px;
+    border-radius: 7px;
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .theme-c .nav-item { color: #8c84a8; }
+  .theme-c .nav-item.active {
+    background: rgba(255, 255, 255, 0.05);
+    color: #ece6ff;
+  }
+  .theme-d .nav-item { color: #8c6d7a; }
+  .theme-d .nav-item.active {
+    background: rgba(255, 255, 255, 0.72);
+    color: #3a232e;
+    box-shadow: 0 2px 6px rgba(212, 115, 143, 0.08);
+  }
+
+  .chat-pane {
+    flex: 1;
+    padding: 13px 15px 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .msg-divider {
+    margin: 2px 0 4px;
+    text-align: center;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    position: relative;
+  }
+  .msg-divider::before,
+  .msg-divider::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: calc(50% - 44px);
+    height: 1px;
+  }
+  .msg-divider::before { left: 0; }
+  .msg-divider::after { right: 0; }
+  .theme-c .msg-divider { color: #6f6789; }
+  .theme-c .msg-divider::before,
+  .theme-c .msg-divider::after {
+    background: linear-gradient(90deg, transparent, rgba(201, 162, 255, 0.22), transparent);
+  }
+  .theme-d .msg-divider { color: #b896a3; }
+  .theme-d .msg-divider::before,
+  .theme-d .msg-divider::after {
+    background: linear-gradient(90deg, transparent, rgba(232, 138, 168, 0.3), transparent);
+  }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .pill-group { display: flex; gap: 6px; }
+  .btn-primary, .btn-ghost {
+    padding: 5px 12px;
+    border-radius: 8px;
+    font-size: 11.5px;
+    font-weight: 500;
+  }
+  .theme-c .btn-primary {
+    background: linear-gradient(135deg, #b794ff 0%, #8b5cf6 100%);
+    color: #0e0918;
+    font-weight: 600;
+    box-shadow: 0 4px 14px rgba(139, 92, 246, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  }
+  .theme-c .btn-ghost {
+    background: rgba(34, 28, 52, 0.85);
+    border: 1px solid rgba(201, 162, 255, 0.18);
+    color: #d7cff0;
+  }
+  .theme-d .btn-primary {
+    background: linear-gradient(135deg, #f39ab7 0%, #df7296 100%);
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(223, 114, 150, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  }
+  .theme-d .btn-ghost {
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(232, 138, 168, 0.25);
+    color: #6b4656;
+  }
+
+  .status-chip {
+    font-size: 10.5px;
+    padding: 3px 8px;
+    border-radius: 999px;
+  }
+  .theme-c .status-chip {
+    background: rgba(201, 162, 255, 0.1);
+    border: 1px solid rgba(201, 162, 255, 0.2);
+    color: #cbb0ff;
+  }
+  .theme-d .status-chip {
+    background: rgba(232, 138, 168, 0.12);
+    border: 1px solid rgba(232, 138, 168, 0.25);
+    color: #b24b70;
+  }
+
+  .messages { display: flex; flex-direction: column; gap: 9px; }
+  .bubble {
+    padding: 9px 13px;
+    border-radius: 13px;
+    font-size: 12px;
+    line-height: 1.55;
+    max-width: 84%;
+  }
+  .bubble.bot { border-bottom-left-radius: 4px; align-self: flex-start; }
+  .bubble.me { border-bottom-right-radius: 4px; align-self: flex-end; }
+
+  .theme-c .bubble.bot {
+    background: linear-gradient(160deg, rgba(35, 29, 56, 0.92), rgba(24, 20, 40, 0.94));
+    border: 1px solid rgba(201, 162, 255, 0.16);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    color: #efeaff;
+  }
+  .theme-c .bubble.me {
+    background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+    box-shadow: 0 6px 18px rgba(109, 40, 217, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.26);
+    color: #ffffff;
+  }
+  .theme-d .bubble.bot {
+    background: linear-gradient(160deg, #ffffff 0%, #fdf3f7 100%);
+    border: 1px solid rgba(232, 138, 168, 0.22);
+    box-shadow: 0 3px 10px rgba(212, 115, 143, 0.06), inset 0 1px 0 #ffffff;
+    color: #362730;
+  }
+  .theme-d .bubble.me {
+    background: linear-gradient(135deg, #f39ab7 0%, #dc6f93 100%);
+    box-shadow: 0 5px 14px rgba(220, 111, 147, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    color: #ffffff;
+  }
+
+  /* 带猫耳的输入区 */
+  .composer-wrap {
+    position: relative;
+    margin-top: auto;
+    padding-top: 6px;
+  }
+  .composer-ears {
+    position: absolute;
+    top: -15px;
+    left: 16px;
+    right: 16px;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .composer-box {
+    border-radius: 12px;
+    padding: 11px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 12px;
+  }
+  .theme-c .composer-box {
+    background: linear-gradient(180deg, rgba(28, 24, 46, 0.96) 0%, rgba(20, 17, 34, 0.98) 100%);
+    border: 1px solid rgba(201, 162, 255, 0.28);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(139, 92, 246, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    color: #b7aed1;
+  }
+  .theme-d .composer-box {
+    background: linear-gradient(180deg, #ffffff 0%, #fdf4f8 100%);
+    border: 1px solid rgba(232, 138, 168, 0.34);
+    box-shadow: 0 6px 18px rgba(212, 115, 143, 0.1), inset 0 1px 0 #ffffff;
+    color: #9e7d8b;
+  }
+  .send-btn {
+    padding: 5px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .theme-c .send-btn {
+    background: linear-gradient(135deg, #c9a2ff, #9366f9);
+    color: #110b20;
+    box-shadow: 0 2px 10px rgba(167, 139, 250, 0.35);
+  }
+  .theme-d .send-btn {
+    background: linear-gradient(135deg, #f39ab7, #df7296);
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(223, 114, 150, 0.28);
+  }
+
+  /* 多层挂件陈列区 */
+  .widgets-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .widget-card {
+    border-radius: 13px;
+    padding: 14px 15px;
+    background: linear-gradient(170deg, #171426 0%, #100e1b 100%);
+    border: 1px solid rgba(201, 162, 255, 0.16);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .widget-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .widget-title { font-size: 12.5px; font-weight: 600; color: #ede8fb; }
+  .widget-sub { font-size: 10.5px; color: #8c82a8; }
+  .widget-samples {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .sample-box {
+    border-radius: 9px;
+    padding: 10px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  .sample-box.dark {
+    background: #0b0a12;
+    border: 1px solid rgba(201, 162, 255, 0.14);
+  }
+  .sample-box.light {
+    background: #fdf6f9;
+    border: 1px solid rgba(232, 138, 168, 0.26);
+  }
+  .widget-note { font-size: 11px; color: #887fa3; line-height: 1.45; }
+</style>
+</head>
+<body>
+
+  <div class="page-head">
+    <div>
+      <h1>cat-skin 质感升级预览 v3</h1>
+      <div class="sub">锁定 C（暗夜高对比紫黑）+ D（奶白樱粉）双主题，组件柔和渐变 + 6 款多层 SVG 挂件</div>
+    </div>
+    <span class="tag-pill">v3 · C/D 精修稿</span>
+  </div>
+
+  <h2>双主题组件质感对照（含微渐变、高光内边与上沿猫耳挂件）</h2>
+  <div class="dual-stage" id="stage"></div>
+
+  <h2>多层 SVG 挂件（暗夜 C / 樱粉 D 双底色 × 52 / 28 / 20 px 实测）</h2>
+  <div class="widgets-grid" id="widgets"></div>
+
+<script>
+// 生成多层渐变 SVG，uid 保证同页渐变 ID 不冲突
+function buildWidgetSvg(id, mode, size, uid) {
+  const isDark = mode === 'dark';
+  const p1 = isDark ? '#e4ccff' : '#f06fa6';
+  const p2 = isDark ? '#9d6bff' : '#d4507c';
+  const p3 = isDark ? '#5b21b6' : '#8e2f52';
+  const innerEar = isDark ? '#ffe0f0' : '#fff0f6';
+  const innerEar2 = isDark ? '#f9a8d4' : '#ffc2da';
+  const strokeMain = isDark ? '#f3e8ff' : '#7d2743';
+  const glow = isDark ? 'rgba(201,162,255,0.45)' : 'rgba(212,80,124,0.32)';
+  const star = isDark ? '#fde68a' : '#ffe08a';
+
+  const defs = `
+    <defs>
+      <linearGradient id="g-${uid}-body" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="${p1}"/>
+        <stop offset="65%" stop-color="${p2}"/>
+        <stop offset="100%" stop-color="${p3}"/>
+      </linearGradient>
+      <linearGradient id="g-${uid}-inner" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${innerEar}" stop-opacity="0.92"/>
+        <stop offset="100%" stop-color="${innerEar2}" stop-opacity="0.45"/>
+      </linearGradient>
+      <radialGradient id="g-${uid}-glow" cx="50%" cy="45%" r="55%">
+        <stop offset="0%" stop-color="${glow}"/>
+        <stop offset="100%" stop-color="transparent"/>
+      </radialGradient>
+    </defs>`;
+
+  if (id === 'W1') {
+    // W1: 渐层立体双耳（外耳渐变 + 内耳绒毛层 + 顶部微高光）
+    return `<svg width="${size}" height="${size}" viewBox="0 0 48 48" fill="none">${defs}
+      <ellipse cx="24" cy="27" rx="18" ry="14" fill="url(#g-${uid}-glow)"/>
+      <path d="M8 37 C7 24 10 13 14.5 11.5 C18 10.5 21 19 24 23 C27 19 30 10.5 33.5 11.5 C38 13 41 24 40 37 C34 39.5 14 39.5 8 37 Z"
+            fill="url(#g-${uid}-body)" stroke="${strokeMain}" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="M12.5 33 C12 24 13.8 17.5 15.8 16.8 C17.8 16.2 19.6 22 21 26 Z" fill="url(#g-${uid}-inner)"/>
+      <path d="M35.5 33 C36 24 34.2 17.5 32.2 16.8 C30.2 16.2 28.4 22 27 26 Z" fill="url(#g-${uid}-inner)"/>
+      <path d="M13 14.5 C14.5 13 16 13.2 17.5 15.5" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1.3" stroke-linecap="round"/>
+      <path d="M35 14.5 C33.5 13 32 13.2 30.5 15.5" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1.3" stroke-linecap="round"/>
+    </svg>`;
+  }
+
+  if (id === 'W2') {
+    // W2: 星夜猫耳（立体耳 + 悬浮四角星芒 + 微光晕）
+    return `<svg width="${size}" height="${size}" viewBox="0 0 48 48" fill="none">${defs}
+      <circle cx="24" cy="25" r="18" fill="url(#g-${uid}-glow)"/>
+      <path d="M8 37 L13.5 12.5 L23.5 24 L33.5 12.5 L39 37 Z"
+            fill="url(#g-${uid}-body)" stroke="${strokeMain}" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="M12.5 33.5 L15 18.5 L21 26 Z" fill="url(#g-${uid}-inner)"/>
+      <path d="M34.5 33.5 L32 18.5 L26 26 Z" fill="url(#g-${uid}-inner)"/>
+      <path d="M38 6 L39.5 10.5 L44 12 L39.5 13.5 L38 18 L36.5 13.5 L32 12 L36.5 10.5 Z"
+            fill="${star}" stroke="${strokeMain}" stroke-width="0.9" stroke-linejoin="round"/>
+      <circle cx="11" cy="10" r="1.4" fill="${star}" opacity="0.85"/>
+    </svg>`;
+  }
+
+  if (id === 'W3') {
+    // W3: 缎带蝴蝶结猫耳（双层耳 + 立体缎带结 + 中心高光珠）
+    return `<svg width="${size}" height="${size}" viewBox="0 0 48 48" fill="none">${defs}
+      <path d="M9 31 L14 8.5 L24 19.5 L34 8.5 L39 31 Z"
+            fill="url(#g-${uid}-body)" stroke="${strokeMain}" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="M13.5 27.5 L15.5 14.5 L21 21 Z" fill="url(#g-${uid}-inner)"/>
+      <path d="M34.5 27.5 L32.5 14.5 L27 21 Z" fill="url(#g-${uid}-inner)"/>
+      <path d="M23.5 36.5 L14 31.5 C12.5 34.5 12.5 39 14 41.5 Z" fill="url(#g-${uid}-body)" stroke="${strokeMain}" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M24.5 36.5 L34 31.5 C35.5 34.5 35.5 39 34 41.5 Z" fill="url(#g-${uid}-body)" stroke="${strokeMain}" stroke-width="1.5" stroke-linejoin="round"/>
+      <circle cx="24" cy="36.5" r="3.4" fill="${innerEar}" stroke="${strokeMain}" stroke-width="1.4"/>
+      <circle cx="23.2" cy="35.6" r="1" fill="#ffffff" opacity="0.8"/>
+    </svg>`;
+  }
+
+  if (id === 'W4') {
+    // W4: 弦月铃铛猫耳（立体耳 + 弯月底座 + 挂铃）
+    return `<svg width="${size}" height="${size}" viewBox="0 0 48 48" fill="none">${defs}
+      <circle cx="24" cy="24" r="18" fill="url(#g-${uid}-glow)"/>
+      <path d="M10 28 L14.5 8 L24 18.5 L33.5 8 L38 28"
+            fill="url(#g-${uid}-body)" stroke="${strokeMain}" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="M14 25 L16 13.5 L21 19.5 Z" fill="url(#g-${uid}-inner)"/>
+      <path d="M34 25 L32 13.5 L27 19.5 Z" fill="url(#g-${uid}-inner)"/>
+      <path d="M13 31 C17.5 41.5 30.5 41.5 35 31 C30.5 36.5 17.5 36.5 13 31 Z"
+            fill="url(#g-${uid}-body)" stroke="${strokeMain}" stroke-width="1.4"/>
+      <circle cx="24" cy="32.5" r="3" fill="${star}" stroke="${strokeMain}" stroke-width="1.2"/>
+      <path d="M22.5 33.5 L25.5 33.5" stroke="${strokeMain}" stroke-width="1.1" stroke-linecap="round"/>
+    </svg>`;
+  }
+
+  if (id === 'W5') {
+    // W5: 咖啡馆猫咪徽章（圆润猫头 + 腮红 + 高光眼 + 胡须）
+    return `<svg width="${size}" height="${size}" viewBox="0 0 48 48" fill="none">${defs}
+      <path d="M12 19 L10.5 7.5 L21 13.5 Z" fill="url(#g-${uid}-body)" stroke="${strokeMain}" stroke-width="1.7" stroke-linejoin="round"/>
+      <path d="M36 19 L37.5 7.5 L27 13.5 Z" fill="url(#g-${uid}-body)" stroke="${strokeMain}" stroke-width="1.7" stroke-linejoin="round"/>
+      <path d="M13 17 L12.5 11 L18 14.5 Z" fill="url(#g-${uid}-inner)"/>
+      <path d="M35 17 L35.5 11 L30 14.5 Z" fill="url(#g-${uid}-inner)"/>
+      <ellipse cx="24" cy="27.5" rx="14" ry="12" fill="url(#g-${uid}-body)" stroke="${strokeMain}" stroke-width="1.8"/>
+      <ellipse cx="16.5" cy="30" rx="2.6" ry="1.4" fill="${innerEar}" opacity="0.75"/>
+      <ellipse cx="31.5" cy="30" rx="2.6" ry="1.4" fill="${innerEar}" opacity="0.75"/>
+      <circle cx="19" cy="25.5" r="2.1" fill="${strokeMain}"/>
+      <circle cx="29" cy="25.5" r="2.1" fill="${strokeMain}"/>
+      <circle cx="18.3" cy="24.8" r="0.7" fill="#ffffff"/>
+      <circle cx="28.3" cy="24.8" r="0.7" fill="#ffffff"/>
+      <path d="M21.8 29.8 C22.5 31.4 23.8 31.4 24 29.8 C24.2 31.4 25.5 31.4 26.2 29.8" stroke="${strokeMain}" stroke-width="1.4" stroke-linecap="round"/>
+      <path d="M5 25 L11 26.5 M5 30 L11 29.5 M43 25 L37 26.5 M43 30 L37 29.5" stroke="${strokeMain}" stroke-width="1.3" stroke-linecap="round" opacity="0.75"/>
+    </svg>`;
+  }
+
+  // W6: 软萌猫肉垫（掌心渐变 + 四颗小肉球高光）
+  return `<svg width="${size}" height="${size}" viewBox="0 0 48 48" fill="none">${defs}
+    <circle cx="24" cy="26" r="18" fill="url(#g-${uid}-glow)"/>
+    <ellipse cx="12.5" cy="18.5" rx="3.4" ry="4.5" transform="rotate(-18 12.5 18.5)" fill="url(#g-${uid}-body)" stroke="${strokeMain}" stroke-width="1.5"/>
+    <ellipse cx="20" cy="12.5" rx="3.3" ry="4.6" transform="rotate(-6 20 12.5)" fill="url(#g-${uid}-body)" stroke="${strokeMain}" stroke-width="1.5"/>
+    <ellipse cx="28" cy="12.5" rx="3.3" ry="4.6" transform="rotate(6 28 12.5)" fill="url(#g-${uid}-body)" stroke="${strokeMain}" stroke-width="1.5"/>
+    <ellipse cx="35.5" cy="18.5" rx="3.4" ry="4.5" transform="rotate(18 35.5 18.5)" fill="url(#g-${uid}-body)" stroke="${strokeMain}" stroke-width="1.5"/>
+    <path d="M14 31.5 C14 24.5 19 21 24 21 C29 21 34 24.5 34 31.5 C34 36.5 29.5 38.5 24 37.5 C18.5 38.5 14 36.5 14 31.5 Z"
+          fill="url(#g-${uid}-body)" stroke="${strokeMain}" stroke-width="1.7"/>
+    <path d="M18.5 30.5 C19.5 26 23 24.5 26 25" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1.6" stroke-linecap="round"/>
+  </svg>`;
+}
+
+// 渲染双主题对照舞台
+const themes = [
+  { key:'c', mode:'dark', title:'C · midnight-contrast（暗夜高对比紫黑）', chip:'夜间主力', earWidget:'W2', brandWidget:'W5' },
+  { key:'d', mode:'light', title:'D · sakura-milk（奶白樱粉）', chip:'日间主力', earWidget:'W1', brandWidget:'W3' }
+];
+
+document.getElementById('stage').innerHTML = themes.map((t, idx) => `
+  <div class="app-frame theme-${t.key}">
+    <div class="frame-bar">
+      <div class="frame-dots">
+        <span style="background:#f87171"></span>
+        <span style="background:#fbbf24"></span>
+        <span style="background:#34d399"></span>
+      </div>
+      <span>${t.title}</span>
+      <span class="status-chip">${t.chip}</span>
+    </div>
+    <div class="frame-body">
+      <div class="sidebar">
+        <div class="brand-row">
+          ${buildWidgetSvg(t.brandWidget, t.mode, 22, `brand-${idx}`)}
+          <span>猫猫咖啡馆</span>
+        </div>
+        <div class="nav-new">＋ 新建会话</div>
+        <div class="nav-item active">cat-skin 质感升级</div>
+        <div class="nav-item">长夜写作计划</div>
+        <div class="nav-item">跑团模组备忘</div>
+        <div class="nav-item">插件调试记录</div>
+      </div>
+      <div class="chat-pane">
+        <div class="toolbar">
+          <div class="pill-group">
+            <span class="btn-primary">应用皮肤</span>
+            <span class="btn-ghost">还原默认</span>
+          </div>
+          <span class="status-chip">decor: full</span>
+        </div>
+        <div class="messages">
+          <div class="bubble bot">这套渐变跟内高光比上一版顺眼多了吧喵？耳朵也换成双层绒毛了 (=^･ω･^=)</div>
+          <div class="bubble me">先看看输入框上沿那对猫耳的贴合度</div>
+        </div>
+        <div class="msg-divider">今天 00:33</div>
+        <div class="composer-wrap">
+          <div class="composer-ears">
+            <span style="transform:rotate(-8deg)">${buildWidgetSvg(t.earWidget, t.mode, 28, `ear-l-${idx}`)}</span>
+            <span style="transform:rotate(8deg)">${buildWidgetSvg(t.earWidget, t.mode, 28, `ear-r-${idx}`)}</span>
+          </div>
+          <div class="composer-box">
+            <span>输入点什么给猫猫…</span>
+            <span class="send-btn">发送</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+`).join('');
+
+// 渲染 6 款多层 SVG 挂件
+const widgetMeta = [
+  { id:'W1', name:'渐层双耳', sub:'外耳渐变 + 内耳绒毛', note:'最百搭，贴在输入框上沿不会抢戏，20px 依旧清晰。' },
+  { id:'W2', name:'星夜猫耳', sub:'立体双耳 + 四角星芒', note:'配 C 暗夜紫黑最有呼吸感，星芒在深底上尤其亮眼。' },
+  { id:'W3', name:'缎带蝴蝶结', sub:'双层耳 + 立体领结珠', note:'配 D 樱粉最甜，适合做侧边栏品牌徽章或装饰角标。' },
+  { id:'W4', name:'弦月铃铛', sub:'双层耳 + 弯月 + 金铃', note:'咖啡馆夜间营业感，适合做 Hero 顶部或悬停挂件。' },
+  { id:'W5', name:'猫咪徽章', sub:'腮红 + 高光眼 + 胡须', note:'辨识度最高，放侧边栏左上角直接当品牌头像。' },
+  { id:'W6', name:'软萌肉垫', sub:'掌心高光 + 四趾肉球', note:'适合做状态徽章、发送按钮旁彩蛋或加载小图标。' }
+];
+
+document.getElementById('widgets').innerHTML = widgetMeta.map((w, i) => `
+  <div class="widget-card">
+    <div class="widget-head">
+      <span class="widget-title">${w.id} · ${w.name}</span>
+      <span class="widget-sub">${w.sub}</span>
+    </div>
+    <div class="widget-samples">
+      <div class="sample-box dark">
+        ${buildWidgetSvg(w.id, 'dark', 46, `wd-52-${i}`)}
+        ${buildWidgetSvg(w.id, 'dark', 28, `wd-28-${i}`)}
+        ${buildWidgetSvg(w.id, 'dark', 20, `wd-20-${i}`)}
+      </div>
+      <div class="sample-box light">
+        ${buildWidgetSvg(w.id, 'light', 46, `wl-52-${i}`)}
+        ${buildWidgetSvg(w.id, 'light', 28, `wl-28-${i}`)}
+        ${buildWidgetSvg(w.id, 'light', 20, `wl-20-${i}`)}
+      </div>
+    </div>
+    <div class="widget-note">${w.note}</div>
+  </div>
+`).join('');
+</script>
+</body>
+</html>

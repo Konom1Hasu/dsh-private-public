@@ -1,0 +1,106 @@
+你是资深工程师，负责把一次真实的技术施工整理成**交付文档**。下面是全部事实，只能使用这些事实，不许补充、不许推测、不许编造任何文件名、数字、API 名或结论。任何事实清单里没有的东西都不要写。
+
+# 事实清单
+
+## 一、项目是什么
+
+包名 `@yg/dsh-agycli-provider`，作用是把 Antigravity CLI（`agy.exe` 1.5.11，通过 `agy acp` 的 ACP JSON-RPC 协议）接成 DSH（一个 agent harness）的一条 LLM 渠道。注册进去的渠道名是 `agycli`。
+
+它不是普通的"转发 HTTP"的 provider：agy 本身是个会调工具的 agent，而 DSH 也是 agent。两边都要"结束一轮 / 继续一轮"，所以核心难点是把两个异构的 agent 生命周期缝合起来。
+
+## 二、代码结构（行数为实测）
+
+| 文件 | 行数 | 职责 |
+|---|---|---|
+| `lib/index.js` | 1492 | `AgyCliAdapter`，向 `ctx.llm.registerAdapter(['agycli'], adapter)` 注册渠道；承载模型目录、请求分流、会话绑定自愈、park-and-resume 主循环、工具体积闸、流内通知剥离 |
+| `lib/agy-acp-client.mjs` | 633 | ACP JSON-RPC 客户端：拉起 agy 子进程、握手、session/new、session/resume→load 回退、set_model、promptStream、权限应答 |
+| `lib/mcp-bridge.mjs` | 1043 | 回环 MCP 桥（`node:http` 绑 127.0.0.1:0）：initialize / ping / tools/list / tools/call、schema 净化、三级压缩、SSE 保活、结果收敛 |
+| `lib/park.mjs` | 94 | `TurnStateStore`（LRU）+ `newTurnState`，会话级流状态 |
+| `lib/binding-store.mjs` | 285 | 会话绑定落盘（tmp + rename 原子替换） |
+| `lib/session-tokens.mjs` | 209 | token 估算与轮换判据 |
+| `lib/isolated-home.mjs` | 180 | 独立 `AGY_ISOLATED_HOME` 播种：settings.json、agent 定义、hooks、gate 脚本 |
+
+测试 16 套，全部 `node test-*.mjs` 直接可跑，无外部依赖。其中 11 套自带计数，合计 229 条断言。另有 5 套是流程型（apply 冒烟、真机端到端 park、播种、代理发现、插件装载）。
+
+## 三、核心设计（这些是实现里真实存在的机制）
+
+1. **park-and-resume**：在 agy 视角，一整轮含多次工具调用的推理只是一次未结束的 `session/prompt`；在 DSH 视角，每次工具调用都要结束当前 `stream()`、吐出 `tool-call` 让宿主执行、再由下一轮 `stream()` 带着 `tool-result` 回来。缝合点是一张 Per-Session `TurnState` 加一个跨步存活的后台泵：检测到工具调用就先把调用挂起（park），吐 `finish: tool-calls` 结束这一轮；下一轮进来只把 delta 里的工具结果回填给挂起的调用，**不重发 `session/prompt`**。
+
+2. **权限三重交集**：agy 发起的每一次工具调用都要过 `_authorizePermission`：① 该调用属于一个活跃 Turn（能按 acpSessionId 找到、没被放弃/退役）；② 名字带 `mcp_dsh_` 前缀或来自名为 `dsh` 的 MCP server；③ 裸名在当轮允许列表内（内部中继工具豁免）。三条全中才放行，否则回 `{ outcome: { outcome: "cancelled" } }`。
+
+3. **工具schema 归一化**：DSH 定义工具用 `parameters: { file_path: { type, required: true } }` 这种扁平映射，`required` 写在属性内部；MCP/ACP 要的是 `{ type:'object', properties:{...}, required:[...] }`。桥里用 `toolSchemaOf()` 把三种来源（`inputSchema`／`parameters`／`schema`）统一归一化，把属性内的 `required: true` 提到顶层数组。
+
+4. **两级体积闸**：整包工具表压到 ≤ 54,000 字节（三级压缩：单工具预压 → 描述裁剪 → 只留属性名/类型/required），单条工具回执收敛到 ≤ 9,600 字节（避开 10,240 字节的悬崖）。被降级的工具写进 systemPromptAppend 补偿段（≤16 条、≤6000 字）。
+
+5. **隔离 home**：每个账号固定一个独立 `AGY_ISOLATED_HOME`，在里面播种 settings.json（contextWindow 900K、toolPermission request-review）、agent 定义（`inheritMcp: true`）、PreToolUse 钩子（只放行 `mcp_dsh_*`，4 秒超时即拒）。全程不读写任何 OAuth token 或系统凭据。
+
+6. **主动轮换**：agy 单会话累积约 469 个内部步骤后会永久卡死，所以要在死线前主动换会话——满 200 轮，或会话 token 用量 ≥ 660,602（786,432 × 0.84）就平滑切换新会话并重发全量历史。
+
+## 四、实际踩到的坑（八条，全部真实发生过，按发生顺序）
+
+**坑 1：新建会话面板里看不到自己加的 preset。**
+现象：配置里明明写了 preset，UI 里就是不出现。
+根因：DSH 的 loader patch 语法里，顶层 `- id: xxx` 只能**覆盖已有 entry**；新增 entry 必须包在 `- insert:` 下面，并且要带 `name` 和 `description` 才会出现在选择列表。写成顶层 id 会被当成"要覆盖一个不存在的 entry"，被静默丢弃。
+修法：改成 `- insert:` 嵌套结构，补 `name` / `description` / `order`。
+
+**坑 2：模型只收到一串时间戳，用户说的话凭空消失。**
+现象：前台回复"耳朵竖起来等半天，结果光收到一串时间戳和空消息"。
+根因：`contentText()` 只处理 `string` 和 `Array` 两种内容形态；DSH 某些代码路径传给 adapter 的 content 是**单个 block 对象**（`{type:'text', text:'...'}`）而不是数组，于是整条用户消息被渲染成空字符串。
+修法：`contentText()` 增加分支，单对象也走 `blockText()`。
+
+**坑 3：一个工具都挂不上，模型只能空口聊天。**
+根因：允许列表常量写死成 `DEFAULT_ALLOWED_TOOLS = ['read']`，preset 挂的 fs-search、subagent、todo 等工具在 `_mountTools()` 里被静默过滤光。
+修法：默认改成"不额外过滤"（`allowedTools` 为 `null` 就全收），真正的授权边界交给 DSH 自己的工具沙箱加 `_authorizePermission` 三重交集，adapter 不再做二次裁剪。
+
+**坑 4：改了源码，运行行为一点没变。**
+根因：DSH 加载的是 profile 目录下 `node_modules` 里的**拷贝副本**，不是源码目录。改源码不拷过去，跑的永远是旧版。两个 `index.js` 体积差 6 倍（9,647 字节 vs 62,438 字节），一度以为在调新代码，其实一直在跑初版玩具。
+修法：建立"改完源码必须同步到 profile"的固定动作，并写了装载冒烟验证。
+
+**坑 5：渠道整组从模型下拉消失，但插件状态显示"启用中"。**
+根因：cordis 里没有在 `inject` 声明过的服务，**读一下就直接抛错**。代码里有一行裸读 `ctx.attachments ?? ctx.get?.('attachments')`，抛出的 `cannot get property "attachments" without inject` 把整个 `ctx.inject(['llm'], cb)` 回调整段炸掉，渠道压根没注册。而 cordis 把这种失败当成软失败，插件状态照旧是绿的。
+定位手段：在 `apply()` 里加环境变量开关的诊断探针（`AGYCLI_TRACE=<file>`），把每一步落盘，才拿到真实堆栈。
+修法：探测包 try，取不到就降级成 `null`（图片走文本占位），不再让一行代码炸掉整个注册。
+
+**坑 6：工具声明里只剩一个占位字段，真实参数全被吞。**
+现象：模型报告"工具声明里只剩一个 toolSummary 字段"；不传 `file_path` 报 `missing required property "file_path"`，补上又报 `additional properties 'file_path' not allowed`。
+根因：就第三节第 3 条那个 schema 形状差异——桥只认 `inputSchema`，碰到 DSH 的 `parameters` 就当"无参数"，每个工具的参数表都是空的。
+修法：引入 `toolSchemaOf()` 归一化，`tools/list`、线上形状构造、压缩闸三处统一走它。
+验证：新加一套 schema 专项测试，23 条断言，其中一条专门钉"胖工具压到只剩属性名时 `file_path` 仍在"。
+
+**坑 7：冷审跑不起来。**
+现象：`HTTP 402 Insufficient Balance`。
+根因：官方 DeepSeek key 余额 -0.02 元（欠费），凭证文件里另一个 key 还有 6.34 元。审查工具优先取欠费那个。
+修法：做了个换 key 的变体脚本，两轴（规范/规格）审查才跑通。
+审查结果：采纳并当场修了 2 条真问题（见坑 8 之外的"绑定固化"与"硬编码路径"），驳回 4 条误判（例如"tools/list 绕过体积闸"——不成立，`getTools` 返回的本来就是压缩后的表）。
+
+**坑 8：教程验收清单里有三条一直没落实。**
+- `preTurn` 预登记：原本 turn 是在 `session/new` **之后**才建的，理论上 agy 在建会话瞬间抢先发工具调用会查无此 turn。
+- `pinFirstSegment`：漂移重建时没有开首段保护。
+- GIF 转码：动图一律降级成文字占位，没有尝试抽首帧。
+修法：① 把建 turn 提到 `session/new` 之前，先入册再建会话，会话建好后把 `acpSessionId` 就地回填给同一个对象，失败路径删掉预登记；② 在 `session/new` 的 `_meta.antigravity` 下挂 `pinFirstSegment: true`（不放顶层，避免陌生字段被拒 `-32602`）；③ GIF 先动态 `import('sharp')` 抽首帧转 PNG，探测结论只算一次，没有转码器就降级。
+另外补了两条教程要求但当初漏掉的行为：park 退出前先把绑定固化落盘再吐 `finish`；agy 运行时根目录不再写死某台机器的绝对路径，改成按环境推导。
+
+## 五、当前状态（真实、可复核）
+
+- 16 套测试全部退出码 0；11 套带计数合计 229 条断言。
+- profile 已同步，插件装载冒烟的实测输出：`registered route "agycli" (23 models)`、`listProviders -> ["agycli"]`。
+- 真机链路验证过：用户消息不再丢失；工具调用能真正走通（MCP 桥接 → DSH 执行 → 结果回填）。
+
+## 六、已知限制（如实列出）
+
+1. 图片附件拿不到：`attachments` 服务没在 `inject` 里声明，目前降级成文本占位。要真正接通得改成嵌套 inject 显式声明。
+2. GIF 转码依赖 `sharp`，当前环境未安装，所以动图仍降级为文字；装上即自动生效（探测逻辑已就位）。
+3. 模型表是硬编码的 23 条。不同账号的 agy 模型池不一样（有的账号是 `gemini-4-carbon-*`，有的是 `gemini-4-neon-*`），换号后可能出现表里没有的模型，选了会报错。改进方向是启动时拉一次 `agy models` 动态补表，或做"静态表 ∪ 实测表"的并集。
+
+# 你的任务
+
+写一份**交付文档**，中文，面向接手这个项目的工程师。
+
+要求：
+- 3000～4000 字，Markdown，用二级/三级标题分节。
+- 结构建议：项目概述 → 架构与文件职责 → 关键设计（选 4～5 个最有技术含量的讲透）→ 踩坑复盘（八条，每条写清"现象 / 根因 / 修法"）→ 验收结果 → 已知限制与后续。
+- 重点写**原理和为什么**，不要罗列"改了什么"。读者关心的是"为什么这样做"和"下次遇到怎么判断"。
+- 可以点出设计取舍和代价（例如"默认不做工具过滤，把边界交给宿主，代价是 adapter 层看不见全貌"）。
+- 严禁编造：不许出现事实清单里没有的文件名、函数名、数字、版本号、链接、人名。不确定就不写。
+- 不要写"总结""综上所述"这类收尾套话，不要用四字排比堆砌，不要写"希望对你有帮助"。
+- 直接输出文档正文，不要加任何前后说明。
